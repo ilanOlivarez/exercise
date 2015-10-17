@@ -1,0 +1,102 @@
+ int MAX=1023; //max value you can get from A0
+ int PinA0 = 0;
+ int PinSI = 2;
+ int PinCLK = 3;
+ int switch1 = 4;
+ int valswitch=0;
+int ValueArray[132]; // first array where we will stock the A0 data
+int ADC_LOW[8][132]; // array of 132 pixels 8 bit LSB
+int ADC_HIGH[8][132]; // array of 132 pixels 8 bit MSB
+
+// Considering 132 pixels: 4 dummy pixels and 128 photodiodes
+
+void setup() {
+
+  pinMode(PinCLK, OUTPUT);
+  pinMode(PinSI, OUTPUT);
+  pinMode(switch1, INPUT);
+
+
+  // creation of the first cycle, obtaining the first measurement.
+  
+  digitalWrite(PinSI, HIGH);
+  ClockPulse(); 
+  digitalWrite(PinSI, LOW);
+  
+  for(int i=0;i< 132;i++)
+  {
+      ClockPulse(); 
+  }
+
+  Serial.begin(115200);
+
+}
+
+void loop() {
+    
+    // stopping the integration phase, clocking a SI pulse
+    digitalWrite(PinSI, HIGH);
+    ClockPulse();
+    digitalWrite(PinSI, LOW);
+
+    // next, read the 128 pixel values, stockaging in an int array, + 2 dummy leds at the beginning and at the end
+    
+    for(int i=0; i < 132; i++)
+      {
+          ValueArray[i] = analogRead(PinA0);
+          ClockPulse(); 
+      }
+
+      //sending data to two 8bits array, LSB and MSB, possibility of switching between light or dark intensities
+      // using an 0/1 input to choose between light or dark intensities
+      valswitch = digitalRead(switch1);
+
+      if (valswitch==0){
+
+      for(int i=0;i<132;i++){
+          for(int j=0;j<8;j++){
+          ADC_LOW[j][i]= bitRead(ValueArray[i],j);
+          ADC_HIGH[j+8][i]= bitRead(ValueArray[i],j);
+            }
+          }
+      }
+
+      else if (valswitch == 1){
+        int temp;
+          for(int i=0;i<132;i++){
+           temp=(ValueArray[i]-MAX)*-1;
+          for(int j=0;j<8;j++){
+          ADC_LOW[j][i]= bitRead(temp,j);
+          ADC_HIGH[j+8][i]= bitRead(temp,j);
+            }
+          }
+        }
+
+     // in this part would be the sending of information to the serial bus, if needed
+
+    // reinizializing next the shift register
+    //I could realize that in a cycle you can do wheter sending of data or measurement, not both at the same time.
+      
+    digitalWrite(PinSI, HIGH);
+    ClockPulse();
+    digitalWrite(PinSI, LOW);
+
+    // new cycle to do new measurement
+
+     for(int i=0; i < 132; i++)
+      {
+          ClockPulse(); 
+      }    
+    // delay for integration time
+      delay(10);
+
+
+}
+
+
+void ClockPulse()
+{
+  delayMicroseconds(1);
+  digitalWrite(PinCLK, HIGH);
+  digitalWrite(PinCLK, LOW);
+}
